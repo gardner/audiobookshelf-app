@@ -1,0 +1,52 @@
+//
+//  AppDelegate+BackgroundSync.swift
+//  App
+//
+//  Integration of background sync with app lifecycle
+//
+
+import UIKit
+import BackgroundTasks
+
+// Add this to your existing AppDelegate.swift file
+
+extension AppDelegate {
+    
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        // Schedule background tasks when app goes to background
+        EbookProgressSyncManager.shared.scheduleBackgroundTasks()
+    }
+    
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        // Trigger immediate sync when app comes to foreground
+        Task {
+            await EbookProgressSyncManager.shared.syncPendingProgress()
+        }
+    }
+    
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // Check for any pending syncs that need user attention
+        checkForSyncIssues()
+    }
+    
+    private func checkForSyncIssues() {
+        // This could show a notification or UI indicator 
+        // if there are many failed sync attempts
+        let hasPendingSync = EbookProgressSyncManager.shared.hasPendingSync(for: "any")
+        if hasPendingSync {
+            // Could show a subtle indicator in the UI
+            AppLogger(category: "AppDelegate").log("User has pending ebook progress syncs")
+        }
+    }
+}
+
+// Alternative: If you need to add to existing AppDelegate methods:
+/*
+// In your existing applicationDidEnterBackground method:
+EbookProgressSyncManager.shared.scheduleBackgroundTasks()
+
+// In your existing applicationWillEnterForeground method:
+Task {
+    await EbookProgressSyncManager.shared.syncPendingProgress()
+}
+*/

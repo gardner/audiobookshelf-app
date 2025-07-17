@@ -1,0 +1,39 @@
+//
+//  LocalMediaProgress+Sync.swift
+//  App
+//
+//  Extension to LocalMediaProgress to add sync tracking
+//
+
+import Foundation
+import RealmSwift
+
+extension LocalMediaProgress {
+    
+    /// Track when progress was last synced to server
+    /// This field should be added to the main LocalMediaProgress model
+    @Persisted var lastServerSync: Double?
+    
+    /// Whether this progress item needs to be synced to server
+    var needsServerSync: Bool {
+        guard serverConnectionConfigId != nil else { return false }
+        guard Store.serverConfig?.id == serverConnectionConfigId else { return false }
+        
+        return lastServerSync == nil || lastUpdate > lastServerSync!
+    }
+    
+    /// Mark progress as successfully synced to server
+    func markSyncedToServer() {
+        lastServerSync = Date().timeIntervalSince1970 * 1000
+    }
+    
+    /// Update ebook progress and mark as needing sync
+    func updateEbookProgressWithSync(ebookLocation: String, ebookProgress: Double) throws {
+        try realm?.write {
+            self.ebookLocation = ebookLocation
+            self.ebookProgress = ebookProgress
+            self.lastUpdate = Date().timeIntervalSince1970 * 1000
+            // Don't update lastServerSync - this marks it as needing sync
+        }
+    }
+}

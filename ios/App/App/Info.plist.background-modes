@@ -1,0 +1,15 @@
+<!-- Add these entries to your Info.plist file -->
+
+<!-- Background Modes for ebook progress sync -->
+<key>UIBackgroundModes</key>
+<array>
+    <string>background-app-refresh</string>
+    <string>background-processing</string>
+</array>
+
+<!-- Background Task Identifiers -->
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>com.audiobookshelf.app.ebook-sync</string>
+    <string>com.audiobookshelf.app.ebook-refresh</string>
+</array>
