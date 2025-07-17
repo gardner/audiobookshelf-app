@@ -45,7 +45,9 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "syncLocalSessionsWithServer", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateLocalMediaProgressFinished", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateDeviceSettings", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "updateLocalEbookProgress", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "updateLocalEbookProgress", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncEbookProgressToServer", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "checkEbookSyncStatus", returnType: CAPPluginReturnPromise)
     ]
     
     private let logger = AppLogger(category: "AbsDatabase")
@@ -302,8 +304,13 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
-            // Update finished status
-            try localMediaProgress.updateEbookProgress(ebookLocation: ebookLocation, ebookProgress: ebookProgress)
+            // Update ebook progress with sync tracking
+            try localMediaProgress.updateEbookProgressWithSync(ebookLocation: ebookLocation, ebookProgress: ebookProgress)
+
+            // Trigger background sync manager to handle this update
+            Task {
+                await EbookProgressSyncManager.shared.onProgressUpdated(localLibraryItemId: localLibraryItemId ?? "")
+            }
 
             // Build API response
             let progressDictionary = try? localMediaProgress.asDictionary()
@@ -314,5 +321,37 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["error": "Failed to update ebook progress"])
             return
         }
+    }
+    
+    // Add manual sync method for "sync progress to server" button
+    @objc func syncEbookProgressToServer(_ call: CAPPluginCall) {
+        let localLibraryItemId = call.getString("localLibraryItemId")
+        
+        guard let localLibraryItemId = localLibraryItemId else {
+            call.resolve(["error": "localLibraryItemId required"])
+            return
+        }
+        
+        Task {
+            do {
+                let success = try await EbookProgressSyncManager.shared.manualSyncProgress(for: localLibraryItemId)
+                call.resolve(["success": success])
+            } catch {
+                call.resolve(["error": error.localizedDescription])
+            }
+        }
+    }
+    
+    // Check if progress has pending sync
+    @objc func checkEbookSyncStatus(_ call: CAPPluginCall) {
+        let localLibraryItemId = call.getString("localLibraryItemId")
+        
+        guard let localLibraryItemId = localLibraryItemId else {
+            call.resolve(["error": "localLibraryItemId required"])
+            return
+        }
+        
+        let hasPendingSync = EbookProgressSyncManager.shared.hasPendingSync(for: localLibraryItemId)
+        call.resolve(["hasPendingSync": hasPendingSync])
     }
 }
