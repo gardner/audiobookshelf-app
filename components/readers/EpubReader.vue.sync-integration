@@ -1,0 +1,80 @@
+// Add these methods to the existing EpubReader.vue component
+
+// Updated updateProgress method with improved sync logic
+async updateProgress(payload) {
+  if (!this.keepProgress) return
+
+  // Update local item (this now triggers background sync automatically on iOS)
+  if (this.localLibraryItemId) {
+    const localPayload = {
+      localLibraryItemId: this.localLibraryItemId,
+      ...payload
+    }
+    const localResponse = await this.$db.updateLocalEbookProgress(localPayload)
+    if (localResponse.localMediaProgress) {
+      this.$store.commit('globals/updateLocalMediaProgress', localResponse.localMediaProgress)
+    }
+  }
+
+  // Update server item (still attempt immediate sync when online)
+  if (this.serverLibraryItemId) {
+    try {
+      await this.$nativeHttp.patch(`/api/me/progress/${this.serverLibraryItemId}`, payload)
+      // If successful, mark as synced (though background service will handle this too)
+    } catch (error) {
+      console.error('EpubReader.updateProgress failed:', error)
+      // Background sync service will retry this automatically
+    }
+  }
+},
+
+// New method to manually sync progress to server
+async manualSyncToServer() {
+  if (!this.localLibraryItemId) {
+    this.$toast.error('No local item to sync')
+    return false
+  }
+
+  try {
+    const result = await this.$db.syncEbookProgressToServer({
+      localLibraryItemId: this.localLibraryItemId
+    })
+    
+    if (result.success) {
+      this.$toast.success('Progress synced to server')
+      return true
+    } else {
+      this.$toast.error(result.error || 'Failed to sync progress')
+      return false
+    }
+  } catch (error) {
+    console.error('Manual sync failed:', error)
+    this.$toast.error('Failed to sync progress')
+    return false
+  }
+},
+
+// Check if this item has pending sync
+async checkSyncStatus() {
+  if (!this.localLibraryItemId) return false
+
+  try {
+    const result = await this.$db.checkEbookSyncStatus({
+      localLibraryItemId: this.localLibraryItemId
+    })
+    return result.hasPendingSync
+  } catch (error) {
+    console.error('Failed to check sync status:', error)
+    return false
+  }
+}
+
+// Add computed property to show sync status
+computed: {
+  // ... existing computed properties ...
+  
+  hasPendingSync() {
+    // This would be reactive and show sync status in UI
+    return this.checkSyncStatus()
+  }
+}

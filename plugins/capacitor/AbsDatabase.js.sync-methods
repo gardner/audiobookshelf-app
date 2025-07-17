@@ -1,0 +1,17 @@
+// Add these methods to the existing AbsDatabase.js file
+
+// Manual sync method for "sync progress to server" button
+async syncEbookProgressToServer(payload) {
+  if (this.platform !== 'capacitor') {
+    return { success: false, error: 'Not supported on web' }
+  }
+  return await AbsDatabase.syncEbookProgressToServer(payload)
+}
+
+// Check sync status for UI indicators
+async checkEbookSyncStatus(payload) {
+  if (this.platform !== 'capacitor') {
+    return { hasPendingSync: false }
+  }
+  return await AbsDatabase.checkEbookSyncStatus(payload)
+}
